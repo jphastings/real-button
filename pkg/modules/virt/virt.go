@@ -17,6 +17,7 @@ const (
 	pkgName        = "virt"
 	offStateTTL    = 4 * time.Second
 	confirmTimeout = 5 * time.Second
+	defaultAction  = "suspend"
 )
 
 var (
@@ -71,6 +72,7 @@ type virtModule struct {
 	virt          *libvirt.Libvirt
 	domain        libvirt.Domain
 	confirmations map[string]bool
+	actionName    string
 
 	button <-chan modules.Press
 	leds   chan<- led.State
@@ -89,6 +91,15 @@ func New(config map[string]interface{}) (modules.Module, error) {
 		return nil, err
 	}
 
+	actionName, ok := config["action"].(string)
+	if !ok {
+		actionName = defaultAction
+	}
+
+	if _, ok := actions[actionName]; !ok {
+		return nil, fmt.Errorf("unknown action '%s'", actionName)
+	}
+
 	// Drop a byte before libvirt.New(c)
 	// More details at https://github.com/digitalocean/go-libvirt/issues/89
 	// Removed as this issue does not exist any more.
@@ -101,6 +112,7 @@ func New(config map[string]interface{}) (modules.Module, error) {
 
 	return &virtModule{
 		virt:          l,
+		actionName:    actionName,
 		confirmations: make(map[string]bool),
 		errors:        make(chan error),
 	}, nil
@@ -196,32 +208,37 @@ func (m *virtModule) onPress() {
 
 			switch libvirt.DomainState(state) {
 			case libvirt.DomainRunning:
-				m.confirm("shutdown", func() error { return m.virt.DomainShutdown(m.domain) })
+				actionFunc := actions[m.actionName]
+				m.confirm(m.actionName, func() error { return actionFunc(m) })
 			case libvirt.DomainPaused:
-				log.Printf("Domain '%s' is being resumed", m.domain.Name)
+				log.Printf("Sent resume command to '%s'", m.domain.Name)
 				m.reportOutcome(m.virt.DomainResume(m.domain))
 			case libvirt.DomainShutdown, libvirt.DomainShutoff, libvirt.DomainCrashed:
-				log.Printf("Domain '%s' is being started", m.domain.Name)
+				log.Printf("Sent start command to '%s'", m.domain.Name)
 				m.leds <- led.Blue
 				m.reportOutcome(m.virt.DomainCreate(m.domain))
 			case libvirt.DomainPmsuspended:
-				log.Printf("Domain '%s' is being (power manage) woken up", m.domain.Name)
+				log.Printf("Sent (power managed) wake up command to '%s'", m.domain.Name)
 				m.reportOutcome(m.virt.DomainPmWakeup(m.domain, wakeUpFlags))
 			case libvirt.DomainBlocked:
 				log.Printf("Domain '%s' is blocked", m.domain.Name)
 				m.leds <- led.Error
 			default:
-				log.Printf("Domain '%s' is in an unknown state: %v", m.domain.Name, state)
+				log.Printf("Domain '%s' is in an unknown state (%v)", m.domain.Name, state)
 			}
 		}
 	}
+}
+
+var actions = map[string]func(*virtModule) error{
+	"shutdown": func(m *virtModule) error { return m.virt.DomainShutdown(m.domain) },
+	"suspend":  func(m *virtModule) error { return m.virt.DomainSuspend(m.domain) },
 }
 
 // reportOutcome sends a "performing" or "error" signal to the LEDs, based on the presence of the error.
 // returns true if there was an error.
 func (m *virtModule) reportOutcome(err error) (ok bool) {
 	if err == nil {
-		m.leds <- led.Performing
 		return true
 	}
 
@@ -233,6 +250,7 @@ func (m *virtModule) reportOutcome(err error) (ok bool) {
 func (m *virtModule) confirm(name string, run func() error) {
 	if confirmed, present := m.confirmations[name]; present && confirmed {
 		log.Printf("Domain '%s' is being %s", m.domain.Name, name)
+		m.leds <- led.Performing
 		if !m.reportOutcome(run()) {
 			return
 		}

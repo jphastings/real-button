@@ -8,3 +8,4 @@ modules:
 buttons:
 - module: virt
   domain: Windows 10
+  action: suspend
