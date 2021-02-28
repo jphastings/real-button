@@ -41,6 +41,12 @@ func (l *PhysicalLED) DisplayChanges(changes <-chan State) {
 
 func (l *PhysicalLED) updateDynamicState() {
 	if l.state.Flash == 0 {
+		if l.disable {
+			l.disable = false
+			l.reassess = nil
+			return
+		}
+
 		l.flashing = false
 		if l.state.TTL != 0 {
 			l.disable = true
