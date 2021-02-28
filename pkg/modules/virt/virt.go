@@ -33,7 +33,6 @@ var domainStateMap = map[libvirt.DomainState]led.State{
 	libvirt.DomainCrashed:     ledVMCrashed,
 }
 
-// https://github.com/digitalocean/go-libvirt/blob/aaced3ae0e81/const.gen.go#L1262
 var domainEventMap = map[libvirt.DomainEventType]led.State{
 	libvirt.DomainEventStarted:     led.Green,
 	libvirt.DomainEventResumed:     led.Green,
@@ -42,6 +41,24 @@ var domainEventMap = map[libvirt.DomainEventType]led.State{
 	libvirt.DomainEventStopped:     ledVMOff,
 	libvirt.DomainEventShutdown:    ledVMOff,
 	libvirt.DomainEventCrashed:     ledVMCrashed,
+}
+
+var domainStateName = map[libvirt.DomainState]string{
+	libvirt.DomainRunning:     "running",
+	libvirt.DomainPaused:      "paused",
+	libvirt.DomainPmsuspended: "(power managed) suspended",
+	libvirt.DomainShutdown:    "shutdown",
+	libvirt.DomainShutoff:     "shutoff",
+	libvirt.DomainCrashed:     "crashed",
+}
+var domainEventNames = map[libvirt.DomainEventType]string{
+	libvirt.DomainEventStarted:     "started",
+	libvirt.DomainEventResumed:     "resumed",
+	libvirt.DomainEventSuspended:   "suspended",
+	libvirt.DomainEventPmsuspended: "(power managed) suspended",
+	libvirt.DomainEventStopped:     "stopped",
+	libvirt.DomainEventShutdown:    "shutdown",
+	libvirt.DomainEventCrashed:     "crashed",
 }
 
 func init() {
@@ -57,6 +74,8 @@ type virtModule struct {
 
 	button <-chan modules.Press
 	leds   chan<- led.State
+
+	errors chan error
 }
 
 func New(config map[string]interface{}) (modules.Module, error) {
@@ -83,68 +102,85 @@ func New(config map[string]interface{}) (modules.Module, error) {
 	return &virtModule{
 		virt:          l,
 		confirmations: make(map[string]bool),
+		errors:        make(chan error),
 	}, nil
 }
 
-func (m *virtModule) Configure(config map[string]interface{}) (<-chan led.State, chan<- modules.Press, error) {
+func (m *virtModule) Configure(config map[string]interface{}) (modules.Configured, error) {
 	domainName, ok := config["domain"].(string)
 	if !ok {
-		return nil, nil, fmt.Errorf("missing 'domain' key in virt config")
+		return modules.Configured{}, fmt.Errorf("missing 'domain' key in virt config")
 	}
 
 	domain, err := m.virt.DomainLookupByName(domainName)
 	if err != nil {
-		return nil, nil, fmt.Errorf("the domain %s does not exist: %w", domainName, err)
+		return modules.Configured{}, fmt.Errorf("the domain %s does not exist: %w", domainName, err)
 	}
 	m.domain = domain
 
 	leds := make(chan led.State)
 	m.leds = leds
-	go m.registerDomainEvents()
-
 	button := make(chan modules.Press)
 	m.button = button
-	go m.onPress()
 
-	return leds, button, nil
+	return modules.Configured{
+		LEDState:    leds,
+		ButtonPress: button,
+		Run:         m.Run,
+	}, nil
 }
 
-func (m *virtModule) resetState() {
+func (m *virtModule) Run() error {
+	go m.registerDomainEvents()
+	go m.onPress()
+	return <-m.errors
+}
+
+func (m *virtModule) resetState() error {
 	state, _, err := m.virt.DomainGetState(m.domain, getStateFlags)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
-	log.Println("Boot state:", state)
+	st := libvirt.DomainState(state)
+	log.Printf("Domain '%s' announced it is %s", m.domain.Name, domainStateName[st])
 
-	if state, ok := domainStateMap[libvirt.DomainState(state)]; ok {
+	if state, ok := domainStateMap[st]; ok {
 		m.leds <- state
 	}
+	return nil
 }
 
 func (m *virtModule) registerDomainEvents() {
-	m.resetState()
+	if err := m.resetState(); err != nil {
+		m.errors <- err
+		return
+	}
 
 	events, err := m.virt.LifecycleEvents(context.Background())
 	if err != nil {
-		panic(err)
+		m.errors <- err
+		return
 	}
 
 	for event := range events {
-		if event.Dom != m.domain {
+		if event.Dom.UUID != m.domain.UUID {
 			continue
 		}
 
-		if state, ok := domainEventMap[libvirt.DomainEventType(event.Event)]; ok {
+		evt := libvirt.DomainEventType(event.Event)
+		log.Printf("Domain '%s' announced it was %s\n", m.domain.Name, domainEventNames[evt])
+
+		if state, ok := domainEventMap[evt]; ok {
 			m.leds <- state
 		}
 	}
+	m.errors <- fmt.Errorf("libvirt closed lifecycle event stream")
 }
 
 const (
 	getStateFlags = 0
 	wakeUpFlags   = 0
-	rebootFlags   = 0
 )
 
 func (m *virtModule) onPress() {
@@ -153,22 +189,29 @@ func (m *virtModule) onPress() {
 		case <-m.button:
 			state, _, err := m.virt.DomainGetState(m.domain, getStateFlags)
 			if err != nil {
-				panic(err)
+				m.leds <- led.Error
+				m.errors <- err
+				continue
 			}
-
-			fmt.Println("Current State:", state)
 
 			switch libvirt.DomainState(state) {
 			case libvirt.DomainRunning:
 				m.confirm("shutdown", func() error { return m.virt.DomainShutdown(m.domain) })
 			case libvirt.DomainPaused:
+				log.Printf("Domain '%s' is being resumed", m.domain.Name)
 				m.reportOutcome(m.virt.DomainResume(m.domain))
 			case libvirt.DomainShutdown, libvirt.DomainShutoff, libvirt.DomainCrashed:
-				m.leds <- led.Error
+				log.Printf("Domain '%s' is being started", m.domain.Name)
+				m.leds <- led.Blue
+				m.reportOutcome(m.virt.DomainCreate(m.domain))
 			case libvirt.DomainPmsuspended:
+				log.Printf("Domain '%s' is being (power manage) woken up", m.domain.Name)
 				m.reportOutcome(m.virt.DomainPmWakeup(m.domain, wakeUpFlags))
 			case libvirt.DomainBlocked:
+				log.Printf("Domain '%s' is blocked", m.domain.Name)
 				m.leds <- led.Error
+			default:
+				log.Printf("Domain '%s' is in an unknown state: %v", m.domain.Name, state)
 			}
 		}
 	}
@@ -189,6 +232,7 @@ func (m *virtModule) reportOutcome(err error) (ok bool) {
 
 func (m *virtModule) confirm(name string, run func() error) {
 	if confirmed, present := m.confirmations[name]; present && confirmed {
+		log.Printf("Domain '%s' is being %s", m.domain.Name, name)
 		if !m.reportOutcome(run()) {
 			return
 		}
@@ -196,6 +240,7 @@ func (m *virtModule) confirm(name string, run func() error) {
 		return
 	}
 
+	log.Printf("Domain '%s' will be %s if confirmed", m.domain.Name, name)
 	m.leds <- led.State{R: true, Flash: 150 * time.Millisecond}
 	m.confirmations[name] = true
 	go m.checkNotConfirmed(name)
@@ -205,11 +250,14 @@ func (m *virtModule) checkNotConfirmed(name string) {
 	<-time.After(confirmTimeout)
 	if m.confirmations[name] {
 		m.confirmations[name] = false
-		m.resetState()
+		_ = m.resetState()
 	}
 }
 
 func (m *virtModule) Close() {
 	close(m.leds)
-	_ = m.virt.Disconnect()
+	if err := m.virt.Disconnect(); err != nil {
+		m.errors <- err
+	}
+	close(m.errors)
 }

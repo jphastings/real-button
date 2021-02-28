@@ -1,10 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"github.com/jphastings/vm-power/pkg"
 	"log"
-	"os"
 )
 
 func main() {
@@ -13,7 +11,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := app.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, err.Error())
+	if err := app.Run("/dev/cu.usbserial-14230"); err != nil {
+		log.Fatal(err)
 	}
 }

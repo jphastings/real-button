@@ -18,11 +18,7 @@ type yamlConfig struct {
 	Buttons []map[string]interface{}
 }
 
-type Config []interact
-type interact struct {
-	buttonPress chan<- modules.Press
-	leds        <-chan led.State
-}
+type Config []modules.Configured
 
 func Load(path string) (*Config, error) {
 	yamlFile, err := ioutil.ReadFile(path)
@@ -53,14 +49,11 @@ func configureModules(yc yamlConfig) (*Config, error) {
 			return nil, err
 		}
 
-		leds, bttn, err := instance.Configure(modDef)
+		configured, err := instance.Configure(modDef)
 		if err != nil {
 			return nil, err
 		}
-		c = append(c, interact{
-			buttonPress: bttn,
-			leds:        leds,
-		})
+		c = append(c, configured)
 	}
 	return &c, nil
 }
@@ -100,24 +93,30 @@ func extractKey(theMap map[string]interface{}, key string) (string, error) {
 	return valStr, nil
 }
 
-func (c Config) Run() error {
-	port, err := buttons.GetPort()
+func (c Config) Run(device string) error {
+	port, err := buttons.GetPort(device)
 	if err != nil {
 		return err
 	}
 
-	log.Println("Connected and ready")
+	log.Println("Connected to buttons, and ready")
 
-	var mu sync.Mutex
-	for idx, v := range c {
-		led := led.New(uint8(idx), port, &mu)
-		go led.DisplayChanges(v.leds)
+	var writeMutex sync.Mutex
+
+	for idx, instance := range c {
+		l := led.New(uint8(idx), port, &writeMutex)
+		go l.DisplayChanges(instance.LEDState)
+		go runInstance(instance)
 	}
 
 	presses := buttons.AwaitPress(port)
 	for index := range presses {
-		c[index].buttonPress <- modules.Press{}
+		c[index].ButtonPress <- modules.Press{}
 	}
 
 	return nil
+}
+
+func runInstance(instance modules.Configured) {
+	log.Fatal(instance.Run())
 }

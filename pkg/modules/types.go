@@ -5,8 +5,14 @@ import (
 )
 
 type Module interface {
-	Configure(map[string]interface{}) (<-chan led.State, chan<- Press, error)
+	Configure(map[string]interface{}) (Configured, error)
 	Close()
+}
+
+type Configured struct {
+	LEDState    <-chan led.State
+	ButtonPress chan<- Press
+	Run         func() error
 }
 
 type Press struct{}

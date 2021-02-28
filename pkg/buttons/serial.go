@@ -8,10 +8,14 @@ import (
 
 const buttonPressBufferSize = 16
 
-func GetPort() (io.ReadWriteCloser, error) {
+func GetPort(device string) (io.ReadWriteCloser, error) {
+	// TODO: Discover automatically
+	if device == "" {
+		device = "/dev/ttyUSB0"
+	}
+
 	options := serial.OpenOptions{
-		// TODO: Select one automatically
-		PortName:        "/dev/cu.usbserial-14220",
+		PortName:        device,
 		BaudRate:        9600,
 		DataBits:        8,
 		StopBits:        1,
