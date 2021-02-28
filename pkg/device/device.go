@@ -8,6 +8,11 @@ import (
 	"path/filepath"
 )
 
+var (
+	magicRequest       = []byte{31}
+	magicResponse byte = 0b11100000
+)
+
 var buttonIsSingular = map[bool]string{
 	false: "buttons",
 	true:  "button",
@@ -44,7 +49,7 @@ func openSerial(path string) (io.ReadWriteCloser, int, error) {
 		return nil, 0, err
 	}
 
-	if _, err := port.Write([]byte{31}); err != nil {
+	if _, err := port.Write(magicRequest); err != nil {
 		return nil, 0, err
 	}
 
@@ -54,7 +59,7 @@ func openSerial(path string) (io.ReadWriteCloser, int, error) {
 		return nil, 0, err
 	}
 
-	if resp[0]&0b11100000 != 0b11100000 {
+	if resp[0]&magicResponse != magicResponse {
 		port.Close()
 		return nil, 0, fmt.Errorf("not a button device")
 	}
