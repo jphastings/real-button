@@ -3,6 +3,7 @@ package pkg
 import (
 	"fmt"
 	"github.com/jphastings/vm-power/pkg/buttons"
+	"github.com/jphastings/vm-power/pkg/device"
 	"github.com/jphastings/vm-power/pkg/led"
 	"github.com/jphastings/vm-power/pkg/modules"
 	_ "github.com/jphastings/vm-power/pkg/modules/demo"
@@ -93,10 +94,14 @@ func extractKey(theMap map[string]interface{}, key string) (string, error) {
 	return valStr, nil
 }
 
-func (c Config) Run(device string) error {
-	port, err := buttons.GetPort(device)
+func (c Config) Run() error {
+	port, buttonCount, err := device.GetPort()
 	if err != nil {
 		return err
+	}
+
+	if len(c) != buttonCount {
+		return fmt.Errorf("%d buttons configured but %s buttons available\n", len(c), buttonCount)
 	}
 
 	log.Println("Connected to buttons, and ready")

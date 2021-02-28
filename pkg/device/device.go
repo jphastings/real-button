@@ -1,19 +1,37 @@
 package device
 
 import (
+	"fmt"
 	"github.com/jacobsa/go-serial/serial"
 	"io"
-	"time"
+	"log"
+	"path/filepath"
 )
 
-func GetPort(device string) (io.ReadWriteCloser, error) {
-	// TODO: Discover automatically
-	if device == "" {
-		device = "/dev/ttyUSB0"
-	}
+var buttonIsSingular = map[bool]string{
+	false: "buttons",
+	true:  "button",
+}
 
+func GetPort() (io.ReadWriteCloser, int, error) {
+	paths, err := filepath.Glob(possibleDevicesGlob)
+	if err != nil {
+		return nil, 0, err
+	}
+	for _, path := range paths {
+		port, buttons, err := openSerial(path)
+		if err != nil {
+			continue
+		}
+		log.Printf("Found device with %d %s at %s\n", buttons, buttonIsSingular[buttons == 1], path)
+		return port, buttons, nil
+	}
+	return nil, 0, fmt.Errorf("no devices seem to be available (searched %s)", possibleDevicesGlob)
+}
+
+func openSerial(path string) (io.ReadWriteCloser, int, error) {
 	options := serial.OpenOptions{
-		PortName:        device,
+		PortName:        path,
 		BaudRate:        9600,
 		DataBits:        8,
 		StopBits:        1,
@@ -23,12 +41,23 @@ func GetPort(device string) (io.ReadWriteCloser, error) {
 
 	port, err := serial.Open(options)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	// TODO: Why doesn't the first colour work unless we have a wait here?
-	// TODO: Add dynamic wait here?
-	<-time.After(1500 * time.Millisecond)
+	if _, err := port.Write([]byte{31}); err != nil {
+		return nil, 0, err
+	}
 
-	return port, nil
+	resp := make([]byte, 1)
+	if _, err := port.Read(resp); err != nil {
+		port.Close()
+		return nil, 0, err
+	}
+
+	if resp[0]&0b11100000 != 0b11100000 {
+		port.Close()
+		return nil, 0, fmt.Errorf("not a button device")
+	}
+
+	return port, int(resp[0] & 0b00011111), nil
 }

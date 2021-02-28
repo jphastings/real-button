@@ -11,7 +11,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := app.Run("/dev/cu.usbserial-14230"); err != nil {
+	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
 }
