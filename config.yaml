@@ -1,0 +1,10 @@
+modules:
+  virt:
+    pkg: virt
+    address: 127.0.0.1:16509
+  demo:
+    pkg: demo
+
+buttons:
+- module: virt
+  domain: Windows 10
