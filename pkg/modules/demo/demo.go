@@ -1,8 +1,8 @@
 package demo
 
 import (
-	"github.com/jphastings/vm-power/pkg/led"
-	"github.com/jphastings/vm-power/pkg/modules"
+	"github.com/jphastings/real-button/pkg/led"
+	"github.com/jphastings/real-button/pkg/modules"
 	"time"
 )
 

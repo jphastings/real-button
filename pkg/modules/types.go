@@ -1,7 +1,7 @@
 package modules
 
 import (
-	"github.com/jphastings/vm-power/pkg/led"
+	"github.com/jphastings/real-button/pkg/led"
 )
 
 type Module interface {

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/jphastings/vm-power/pkg"
+	"github.com/jphastings/real-button/pkg"
 	"log"
 )
 

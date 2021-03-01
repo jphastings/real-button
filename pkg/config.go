@@ -2,12 +2,12 @@ package pkg
 
 import (
 	"fmt"
-	"github.com/jphastings/vm-power/pkg/buttons"
-	"github.com/jphastings/vm-power/pkg/device"
-	"github.com/jphastings/vm-power/pkg/led"
-	"github.com/jphastings/vm-power/pkg/modules"
-	_ "github.com/jphastings/vm-power/pkg/modules/demo"
-	_ "github.com/jphastings/vm-power/pkg/modules/virt"
+	"github.com/jphastings/real-button/pkg/buttons"
+	"github.com/jphastings/real-button/pkg/device"
+	"github.com/jphastings/real-button/pkg/led"
+	"github.com/jphastings/real-button/pkg/modules"
+	_ "github.com/jphastings/real-button/pkg/modules/demo"
+	_ "github.com/jphastings/real-button/pkg/modules/virt"
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"log"

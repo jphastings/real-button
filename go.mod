@@ -1,4 +1,4 @@
-module github.com/jphastings/vm-power
+module github.com/jphastings/real-button
 
 go 1.14
 
