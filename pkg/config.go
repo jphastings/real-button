@@ -2,16 +2,18 @@ package pkg
 
 import (
 	"fmt"
+	"io/ioutil"
+	"log"
+	"sync"
+
+	"gopkg.in/yaml.v3"
+
 	"github.com/jphastings/real-button/pkg/buttons"
 	"github.com/jphastings/real-button/pkg/device"
 	"github.com/jphastings/real-button/pkg/led"
 	"github.com/jphastings/real-button/pkg/modules"
 	_ "github.com/jphastings/real-button/pkg/modules/demo"
 	_ "github.com/jphastings/real-button/pkg/modules/virt"
-	"gopkg.in/yaml.v3"
-	"io/ioutil"
-	"log"
-	"sync"
 )
 
 type yamlConfig struct {

@@ -1,11 +1,22 @@
 modules:
-  virt:
-    pkg: virt
-    address: 127.0.0.1:16509
+  ## Modules defines the connections your buttons use
+
+  # any_name:
+  #   pkg: name_of_package to use in pkg/modules
+  #   whatever: any options for initialising that module
+  # unraid:
+  #   pkg: virt
+  #   address: 127.0.0.1:16509
   demo:
     pkg: demo
 
 buttons:
-- module: virt
-  domain: Windows 10
-  action: suspend
+  ## Buttons defines the buttons on your connected device
+
+  #- module: any_name # As above
+  #  whatever: any options for configuring the package for this button
+  #
+  #- module: unraid
+  #  domain: Windows 10
+  #  action: suspend
+  - module: demo
