@@ -1,22 +1,19 @@
 <?xml version="1.0"?>
 <Container version="2">
-  <Name>RealButton</Name>
+  <Name>Real Button</Name>
   <Repository>jphastings/real-button</Repository>
   <Registry>https://hub.docker.com/r/jphastings/real-button</Registry>
   <Network>host</Network>
-  <MyIP/>
   <Shell>sh</Shell>
   <Privileged>true</Privileged>
   <Support>https://github.com/jphastings/real-button/issues</Support>
   <Project>https://github.com/jphastings/real-button</Project>
   <Overview>The server-side component for a physical button to trigger commands on your server.</Overview>
   <Category>Tools:</Category>
-  <WebUI/>
   <TemplateURL>https://raw.githubusercontent.com/jphastings/real-button/main/templates/real-button.xml</TemplateURL>
   <Icon>https://raw.githubusercontent.com/jphastings/real-button/main/docs/logo.png</Icon>
   <Networking>
     <Mode>host</Mode>
-    <Publish/>
   </Networking>
   <Data>
     <Volume>
@@ -25,7 +22,5 @@
       <Mode>ro</Mode>
     </Volume>
   </Data>
-  <Environment/>
-  <Labels/>
   <Config Name="Config" Target="/config" Default="/mnt/user/appdata/real-button" Mode="ro" Description="Where the config data for the buttons is read from." Type="Path" Display="advanced-hide" Required="true" Mask="false">/mnt/user/appdata/real-button</Config>
 </Container>
