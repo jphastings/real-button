@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <Container version="2">
   <Name>Real Button</Name>
-  <Repository>jphastings/real-button</Repository>
-  <Registry>https://hub.docker.com/r/jphastings/real-button</Registry>
+  <Repository>ghcr.io/jphastings/real-button</Repository>
+  <Registry>https://github.com/jphastings/real-button/pkgs/container/real-button</Registry>
   <Network>host</Network>
   <Shell>sh</Shell>
   <Privileged>true</Privileged>
