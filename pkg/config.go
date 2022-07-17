@@ -118,7 +118,11 @@ func (c Config) Run() error {
 
 	presses := buttons.AwaitPress(port)
 	for index := range presses {
-		c[index].ButtonPress <- modules.Press{}
+		if index >= len(c) {
+			log.Println("Received invalid pushbutton number:", index)
+			continue
+		}
+		c[index].ButtonPress <-modules.Press{}
 	}
 
 	return nil

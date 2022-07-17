@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <Container version="2">
   <Name>Real Button</Name>
-  <Repository>ghcr.io/jphastings/real-button</Repository>
+  <Repository>ghcr.io/jphastings/real-button:main</Repository>
   <Registry>https://github.com/jphastings/real-button/pkgs/container/real-button</Registry>
   <Network>host</Network>
   <Shell>sh</Shell>
