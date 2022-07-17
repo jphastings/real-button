@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"fmt"
 	"github.com/jphastings/real-button/pkg"
 	"github.com/spf13/cobra"
 	"log"
 	"os"
+	"time"
 )
 
 var configFile string
@@ -17,7 +19,15 @@ var rootCmd = &cobra.Command{
 			return err
 		}
 
-		return app.Run()
+		for {
+			if err := app.Run(); err != nil {
+				fmt.Printf("Error running the button: %v", err)
+				fmt.Printf("Will retry in 10 seconds")
+				time.Sleep(10)
+			}
+
+		}
+
 	},
 }
 
